@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: ApplyVault backend on Lambda + API Gateway
+
+Parameters:
+  AppName:
+    Type: String
+    Default: applyvault
+  StageName:
+    Type: String
+    Default: prod
+  FrontendOrigin:
+    Type: String
+    Default: "*"
+  DbHost:
+    Type: String
+  DbPort:
+    Type: Number
+    Default: 3306
+  DbName:
+    Type: String
+  DbUser:
+    Type: String
+  DbPassword:
+    Type: String
+    NoEcho: true
+  JwtSecret:
+    Type: String
+    NoEcho: true
+  SnsTopicArn:
+    Type: String
+  ResumeBucketName:
+    Type: String
+  ResumePublicBaseUrl:
+    Type: String
+    Default: ""
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 30
+    MemorySize: 1024
+
+Resources:
+  ApplyVaultApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        MaxAge: 600
+
+  BackendFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AppName}-backend-${StageName}
+      CodeUri: ./
+      Handler: src/lambda.handler
+      Environment:
+        Variables:
+          NODE_ENV: production
+          DB_CLIENT: mysql
+          DB_HOST: !Ref DbHost
+          DB_PORT: !Ref DbPort
+          DB_NAME: !Ref DbName
+          DB_USER: !Ref DbUser
+          DB_PASSWORD: !Ref DbPassword
+          JWT_SECRET: !Ref JwtSecret
+          JWT_EXPIRES_IN: 1d
+          API_STAGE_PREFIX: !Ref StageName
+          CLIENT_ORIGIN: !Ref FrontendOrigin
+          REQUIRE_DB_ON_STARTUP: "true"
+          RESUME_STORAGE: s3
+          RESUME_S3_BUCKET: !Ref ResumeBucketName
+          RESUME_S3_PUBLIC_BASE_URL: !Ref ResumePublicBaseUrl
+          SNS_TOPIC_ARN: !Ref SnsTopicArn
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ApplyVaultApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ApplyVaultApi
+            Path: /{proxy+}
+            Method: ANY
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - sns:Publish
+              Resource: !Ref SnsTopicArn
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:PutObjectAcl
+              Resource: !Sub arn:aws:s3:::${ResumeBucketName}/*
+
+Outputs:
+  HttpApiUrl:
+    Description: API Gateway base URL
+    Value: !Sub https://${ApplyVaultApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
+  BackendFunctionName:
+    Description: Lambda function name
+    Value: !Ref BackendFunction
