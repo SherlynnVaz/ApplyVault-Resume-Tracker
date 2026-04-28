@@ -60,10 +60,10 @@ const LandingPage = () => {
                                 <ArrowRight size={16} />
                             </Link>
                             <Link
-                                to="/login"
-                                className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                            to="/login?role=recruiter"
+                            className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                             >
-                                Recruiter Login
+                            Recruiter Login
                             </Link>
                         </div>
                     </div>
