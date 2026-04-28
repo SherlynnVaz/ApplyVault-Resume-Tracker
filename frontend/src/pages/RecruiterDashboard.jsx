@@ -16,7 +16,15 @@ const RecruiterDashboard = () => {
     const [filters, setFilters] = useState({ search: "", status: "", jobId: "" });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-
+    const [showJobForm, setShowJobForm] = useState(false);
+    const [jobForm, setJobForm] = useState({
+    title: "",
+    company: "",
+    location: "",
+    description: ""
+});
+    const [jobError, setJobError] = useState("");
+    const [jobMessage, setJobMessage] = useState("");
     const loadData = async () => {
         setLoading(true);
         setError("");
@@ -37,7 +45,22 @@ const RecruiterDashboard = () => {
             setLoading(false);
         }
     };
+    const createJob = async (event) => {
+    event.preventDefault();
+    setJobError("");
+    setJobMessage("");
 
+    try {
+        await api.post("/jobs", jobForm);
+        setJobMessage("Job posted successfully! Candidates can now apply.");
+        setJobForm({ title: "", company: "", location: "", description: "" });
+        setShowJobForm(false);
+        // Refresh stats so total_jobs count updates
+        loadData();
+    } catch (apiError) {
+        setJobError(apiError.response?.data?.message || "Failed to create job.");
+    }
+};
     useEffect(() => {
         loadData();
     }, []);
@@ -59,6 +82,70 @@ const RecruiterDashboard = () => {
     return (
         <DashboardLayout role="recruiter">
             <div className="space-y-6">
+            <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5 dark:border-cyan-800 dark:bg-cyan-900/20">
+    <div className="flex items-center justify-between">
+        <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Create Job Listing
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+                Post a new role for candidates to apply to
+            </p>
+        </div>
+        <button
+            type="button"
+            onClick={() => setShowJobForm((prev) => !prev)}
+            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-cyan-500 dark:text-slate-950"
+        >
+            {showJobForm ? "Cancel" : "+ New Job"}
+        </button>
+    </div>
+
+    {showJobForm && (
+        <form onSubmit={createJob} className="mt-4 grid gap-3 md:grid-cols-2">
+            <input
+                required
+                placeholder="Job Title"
+                value={jobForm.title}
+                onChange={(e) => setJobForm((prev) => ({ ...prev, title: e.target.value }))}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+            <input
+                required
+                placeholder="Company"
+                value={jobForm.company}
+                onChange={(e) => setJobForm((prev) => ({ ...prev, company: e.target.value }))}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+            <input
+                required
+                placeholder="Location"
+                value={jobForm.location}
+                onChange={(e) => setJobForm((prev) => ({ ...prev, location: e.target.value }))}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+            <input
+                required
+                placeholder="Description"
+                value={jobForm.description}
+                onChange={(e) => setJobForm((prev) => ({ ...prev, description: e.target.value }))}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+            {jobError ? (
+                <p className="col-span-2 text-sm font-medium text-rose-600">{jobError}</p>
+            ) : null}
+            {jobMessage ? (
+                <p className="col-span-2 text-sm font-medium text-emerald-600">{jobMessage}</p>
+            ) : null}
+            <button
+                type="submit"
+                className="col-span-2 rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-cyan-500 dark:text-slate-950"
+            >
+                Post Job
+            </button>
+        </form>
+    )}
+</section>
                 <div>
                     <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-slate-100">Recruiter Dashboard</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
