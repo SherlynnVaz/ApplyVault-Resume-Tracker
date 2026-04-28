@@ -27,9 +27,16 @@ if (stagePrefix) {
 }
 
 app.use(helmet());
+const configuredOrigins = (process.env.CLIENT_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const defaultOrigins = ["http://localhost:5173", "http://localhost:5174"];
+const allowedOrigins = configuredOrigins.length > 0 ? configuredOrigins : defaultOrigins;
+
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    origin: true,
     credentials: true
   })
 );

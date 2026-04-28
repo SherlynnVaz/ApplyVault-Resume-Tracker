@@ -34,6 +34,12 @@ Parameters:
   ResumePublicBaseUrl:
     Type: String
     Default: ""
+  SesFromEmail:
+    Type: String
+    Default: ""
+  SesRegion:
+    Type: String
+    Default: ""
 
 Globals:
   Function:
@@ -54,6 +60,7 @@ Resources:
           - GET
           - POST
           - PUT
+          - PATCH
           - DELETE
           - OPTIONS
         MaxAge: 600
@@ -82,6 +89,8 @@ Resources:
           RESUME_S3_BUCKET: !Ref ResumeBucketName
           RESUME_S3_PUBLIC_BASE_URL: !Ref ResumePublicBaseUrl
           SNS_TOPIC_ARN: !Ref SnsTopicArn
+          SES_FROM_EMAIL: !Ref SesFromEmail
+          SES_REGION: !Ref SesRegion
       Events:
         Root:
           Type: HttpApi
@@ -102,6 +111,11 @@ Resources:
               Action:
                 - sns:Publish
               Resource: !Ref SnsTopicArn
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
             - Effect: Allow
               Action:
                 - s3:PutObject

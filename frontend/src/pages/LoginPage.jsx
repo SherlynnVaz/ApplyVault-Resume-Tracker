@@ -90,22 +90,20 @@ const LoginPage = () => {
                     <button
                         type="button"
                         onClick={() => handleRoleSwitch("candidate")}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${
-                            roleChoice === "candidate"
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${roleChoice === "candidate"
                                 ? "bg-white text-slate-900 shadow-soft dark:bg-slate-900 dark:text-white"
                                 : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        }`}
+                            }`}
                     >
                         🎓 Candidate
                     </button>
                     <button
                         type="button"
                         onClick={() => handleRoleSwitch("recruiter")}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${
-                            roleChoice === "recruiter"
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-all ${roleChoice === "recruiter"
                                 ? "bg-white text-slate-900 shadow-soft dark:bg-slate-900 dark:text-white"
                                 : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        }`}
+                            }`}
                     >
                         💼 Recruiter / Admin
                     </button>
@@ -115,10 +113,10 @@ const LoginPage = () => {
                 {roleChoice === "recruiter" && (
                     <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
                         <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                            Demo credentials
+                            Recruiter / Admin Login
                         </p>
                         <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
-                            recruiter@applyvault.com / password
+                            Sign in with your recruiter or admin account
                         </p>
                     </div>
                 )}

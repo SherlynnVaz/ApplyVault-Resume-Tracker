@@ -1,15 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import StatusBadge from "../components/StatusBadge";
 import DashboardLayout from "../layouts/DashboardLayout";
 import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 const COLORS = ["#f59e0b", "#0ea5e9", "#8b5cf6", "#f43f5e", "#10b981"];
 const STATUSES = ["Pending", "Shortlisted", "Interview", "Rejected", "Selected"];
 
 const RecruiterDashboard = () => {
+    const navigate = useNavigate();
+    const { logout } = useAuth();
     const [applicants, setApplicants] = useState([]);
     const [jobs, setJobs] = useState([]);
     const [stats, setStats] = useState({ summary: {}, statusBreakdown: [] });
@@ -18,52 +21,70 @@ const RecruiterDashboard = () => {
     const [error, setError] = useState("");
     const [showJobForm, setShowJobForm] = useState(false);
     const [jobForm, setJobForm] = useState({
-    title: "",
-    company: "",
-    location: "",
-    description: ""
-});
+        title: "",
+        company: "",
+        location: "",
+        description: ""
+    });
     const [jobError, setJobError] = useState("");
     const [jobMessage, setJobMessage] = useState("");
-    const loadData = async () => {
-        setLoading(true);
+    const refreshApplicants = useCallback(async () => {
         setError("");
 
         try {
-            const [appResponse, statsResponse, jobsResponse] = await Promise.all([
+            const [appResponse, statsResponse] = await Promise.all([
                 api.get("/recruiter/applicants", { params: filters }),
-                api.get("/recruiter/dashboard-stats"),
-                api.get("/jobs")
+                api.get("/recruiter/dashboard-stats")
             ]);
 
             setApplicants(appResponse.data.applicants || []);
             setStats(statsResponse.data || { summary: {}, statusBreakdown: [] });
+        } catch (apiError) {
+            setError(apiError.response?.data?.message || "Failed to refresh applicants.");
+        }
+    }, [filters]);
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        setError("");
+
+        try {
+            const jobsResponse = await api.get("/jobs");
             setJobs(jobsResponse.data.jobs || []);
+            await refreshApplicants();
         } catch (apiError) {
             setError(apiError.response?.data?.message || "Failed to load recruiter data.");
         } finally {
             setLoading(false);
         }
-    };
+    }, [refreshApplicants]);
     const createJob = async (event) => {
-    event.preventDefault();
-    setJobError("");
-    setJobMessage("");
+        event.preventDefault();
+        setJobError("");
+        setJobMessage("");
 
-    try {
-        await api.post("/jobs", jobForm);
-        setJobMessage("Job posted successfully! Candidates can now apply.");
-        setJobForm({ title: "", company: "", location: "", description: "" });
-        setShowJobForm(false);
-        // Refresh stats so total_jobs count updates
-        loadData();
-    } catch (apiError) {
-        setJobError(apiError.response?.data?.message || "Failed to create job.");
-    }
-};
+        try {
+            await api.post("/jobs", jobForm);
+            setJobMessage("Job posted successfully! Candidates can now apply.");
+            setJobForm({ title: "", company: "", location: "", description: "" });
+            setShowJobForm(false);
+            // Refresh stats so total_jobs count updates
+            loadData();
+        } catch (apiError) {
+            setJobError(apiError.response?.data?.message || "Failed to create job.");
+        }
+    };
     useEffect(() => {
         loadData();
-    }, []);
+    }, [loadData]);
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            refreshApplicants();
+        }, 20000);
+
+        return () => clearInterval(intervalId);
+    }, [refreshApplicants]);
 
     const chartData = useMemo(() => {
         const map = new Map((stats.statusBreakdown || []).map((item) => [item.status, Number(item.count)]));
@@ -71,81 +92,101 @@ const RecruiterDashboard = () => {
     }, [stats.statusBreakdown]);
 
     const updateStatus = async (applicationId, status) => {
+        setError("");
+        const previousApplicants = applicants;
+
+        setApplicants((prev) =>
+            prev.map((applicant) =>
+                applicant.id === applicationId ? { ...applicant, status } : applicant
+            )
+        );
+
         try {
             await api.patch(`/recruiter/applications/${applicationId}/status`, { status });
-            loadData();
+            refreshApplicants();
         } catch (apiError) {
-            setError(apiError.response?.data?.message || "Unable to update status.");
+            const statusCode = apiError.response?.status;
+            const message = apiError.response?.data?.message;
+
+            if (statusCode === 401 || statusCode === 403) {
+                logout();
+                setError(message || "Session expired. Please log in again.");
+                navigate("/login?role=recruiter", { replace: true });
+                return;
+            }
+
+            setApplicants(previousApplicants);
+            setError(message || "Unable to update status.");
         }
     };
 
     return (
         <DashboardLayout role="recruiter">
             <div className="space-y-6">
-            <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5 dark:border-cyan-800 dark:bg-cyan-900/20">
-    <div className="flex items-center justify-between">
-        <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                Create Job Listing
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-                Post a new role for candidates to apply to
-            </p>
-        </div>
-        <button
-            type="button"
-            onClick={() => setShowJobForm((prev) => !prev)}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-cyan-500 dark:text-slate-950"
-        >
-            {showJobForm ? "Cancel" : "+ New Job"}
-        </button>
-    </div>
+                <section className="rounded-2xl border border-cyan-200 bg-cyan-50 p-5 dark:border-cyan-800 dark:bg-cyan-900/20">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                                Create Job Listing
+                            </h2>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Post a new role for candidates to apply to
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowJobForm((prev) => !prev)}
+                            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-cyan-500 dark:text-slate-950"
+                        >
+                            {showJobForm ? "Cancel" : "+ New Job"}
+                        </button>
+                    </div>
 
-    {showJobForm && (
-        <form onSubmit={createJob} className="mt-4 grid gap-3 md:grid-cols-2">
-            <input
-                required
-                placeholder="Job Title"
-                value={jobForm.title}
-                onChange={(e) => setJobForm((prev) => ({ ...prev, title: e.target.value }))}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-            />
-            <input
-                required
-                placeholder="Company"
-                value={jobForm.company}
-                onChange={(e) => setJobForm((prev) => ({ ...prev, company: e.target.value }))}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-            />
-            <input
-                required
-                placeholder="Location"
-                value={jobForm.location}
-                onChange={(e) => setJobForm((prev) => ({ ...prev, location: e.target.value }))}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-            />
-            <input
-                required
-                placeholder="Description"
-                value={jobForm.description}
-                onChange={(e) => setJobForm((prev) => ({ ...prev, description: e.target.value }))}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-            />
-            {jobError ? (
-                <p className="col-span-2 text-sm font-medium text-rose-600">{jobError}</p>
-            ) : null}
-            {jobMessage ? (
-                <p className="col-span-2 text-sm font-medium text-emerald-600">{jobMessage}</p>
-            ) : null}
-            <button
-                type="submit"
-                className="col-span-2 rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-cyan-500 dark:text-slate-950"
-            >
-                Post Job
-            </button>
-        </form>
-    )}
-</section>
+                    {showJobForm && (
+                        <form onSubmit={createJob} className="mt-4 grid gap-3 md:grid-cols-2">
+                            <input
+                                required
+                                placeholder="Job Title"
+                                value={jobForm.title}
+                                onChange={(e) => setJobForm((prev) => ({ ...prev, title: e.target.value }))}
+                                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                            />
+                            <input
+                                required
+                                placeholder="Company"
+                                value={jobForm.company}
+                                onChange={(e) => setJobForm((prev) => ({ ...prev, company: e.target.value }))}
+                                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                            />
+                            <input
+                                required
+                                placeholder="Location"
+                                value={jobForm.location}
+                                onChange={(e) => setJobForm((prev) => ({ ...prev, location: e.target.value }))}
+                                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                            />
+                            <input
+                                required
+                                placeholder="Description"
+                                value={jobForm.description}
+                                onChange={(e) => setJobForm((prev) => ({ ...prev, description: e.target.value }))}
+                                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                            />
+                            {jobError ? (
+                                <p className="col-span-2 text-sm font-medium text-rose-600">{jobError}</p>
+                            ) : null}
+                            {jobMessage ? (
+                                <p className="col-span-2 text-sm font-medium text-emerald-600">{jobMessage}</p>
+                            ) : null}
+                            <button
+                                type="submit"
+                                className="col-span-2 rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-cyan-500 dark:text-slate-950"
+                            >
+                                Post Job
+                            </button>
+                        </form>
+                    )}
+                </section>
                 <div>
                     <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-slate-100">Recruiter Dashboard</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">

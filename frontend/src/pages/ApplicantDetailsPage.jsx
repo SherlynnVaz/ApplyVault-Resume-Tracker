@@ -5,6 +5,19 @@ import StatusBadge from "../components/StatusBadge";
 import DashboardLayout from "../layouts/DashboardLayout";
 import api from "../services/api";
 
+const buildResumeUrl = (uploadsBase, resumePath) => {
+    if (!resumePath) return "";
+
+    if (/^https?:\/\//i.test(resumePath)) {
+        return resumePath;
+    }
+
+    const normalizedBase = (uploadsBase || "").replace(/\/+$/, "");
+    const normalizedPath = resumePath.startsWith("/") ? resumePath : `/${resumePath}`;
+
+    return `${normalizedBase}${normalizedPath}`;
+};
+
 const ApplicantDetailsPage = () => {
     const { applicationId } = useParams();
     const [application, setApplication] = useState(null);
@@ -24,6 +37,7 @@ const ApplicantDetailsPage = () => {
     }, [applicationId]);
 
     const uploadsBase = import.meta.env.VITE_UPLOADS_BASE_URL || "http://localhost:5000";
+    const resumeUrl = buildResumeUrl(uploadsBase, application?.resume_path);
 
     return (
         <DashboardLayout role="recruiter">
@@ -77,7 +91,7 @@ const ApplicantDetailsPage = () => {
                             </div>
 
                             <a
-                                href={`${uploadsBase}${application.resume_path}`}
+                                href={resumeUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="mt-5 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-cyan-500 dark:text-slate-950"

@@ -113,6 +113,14 @@ fi
 aws rds wait db-instance-available --db-instance-identifier "$DB_IDENTIFIER"
 DB_HOST="$(aws rds describe-db-instances --db-instance-identifier "$DB_IDENTIFIER" --query 'DBInstances[0].Endpoint.Address' --output text)"
 
+SES_PARAMS=()
+if [[ -n "${SES_FROM_EMAIL:-}" ]]; then
+  SES_PARAMS+=(SesFromEmail="$SES_FROM_EMAIL")
+fi
+if [[ -n "${SES_REGION:-}" ]]; then
+  SES_PARAMS+=(SesRegion="$SES_REGION")
+fi
+
 pushd "$BACKEND_DIR" >/dev/null
 npm install
 sam build
@@ -133,7 +141,8 @@ sam deploy \
     JwtSecret="$JWT_SECRET" \
     SnsTopicArn="$TOPIC_ARN" \
     ResumeBucketName="$RESUME_BUCKET" \
-    ResumePublicBaseUrl="https://${RESUME_BUCKET}.s3.${AWS_REGION}.amazonaws.com"
+    ResumePublicBaseUrl="https://${RESUME_BUCKET}.s3.${AWS_REGION}.amazonaws.com" \
+    "${SES_PARAMS[@]}"
 popd >/dev/null
 
 API_URL="$(aws cloudformation describe-stacks --stack-name "${APP_NAME}-${STAGE}-backend" --query 'Stacks[0].Outputs[?OutputKey==`HttpApiUrl`].OutputValue' --output text)"

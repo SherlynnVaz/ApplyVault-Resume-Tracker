@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import StatusBadge from "../components/StatusBadge";
@@ -12,7 +12,16 @@ const CandidateDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const loadData = async () => {
+    const refreshApplications = useCallback(async () => {
+        try {
+            const { data } = await api.get("/candidate/applications");
+            setApplications(data.applications || []);
+        } catch (apiError) {
+            setError(apiError.response?.data?.message || "Unable to refresh applications.");
+        }
+    }, []);
+
+    const loadData = useCallback(async () => {
         setLoading(true);
         setError("");
 
@@ -29,11 +38,19 @@ const CandidateDashboard = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [search]);
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [loadData]);
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            refreshApplications();
+        }, 20000);
+
+        return () => clearInterval(intervalId);
+    }, [refreshApplications]);
 
     const appliedJobIds = useMemo(
         () => new Set(applications.map((application) => Number(application.job_id))),

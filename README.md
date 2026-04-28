@@ -184,3 +184,6 @@ Register candidate accounts from the UI.
 ## AWS Deployment
 
 Use the step-by-step AWS commands in `DEPLOY_AWS.md`.
+
+If you deploy the frontend to S3 Website Hosting, make sure the bucket is configured with `index.html` as
+both the **index** and **error** document so React Router deep links like `/login` work.

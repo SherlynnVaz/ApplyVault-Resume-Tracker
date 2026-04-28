@@ -102,6 +102,31 @@ Upload built frontend:
 aws s3 sync dist s3://<your-frontend-bucket-name> --delete
 ```
 
+### Troubleshooting: `/login` (and other routes) returns 404 on S3
+
+The frontend uses React Router's `BrowserRouter` (clean URLs like `/login`).
+On a static S3 website, a direct refresh/navigation to `/login` makes S3 look for an object named `login`.
+If it doesn't exist, S3 returns **404** unless Website Hosting is configured to fall back to `index.html`.
+
+Fix (recommended for S3 Website Hosting):
+
+```bash
+aws s3 website s3://<your-frontend-bucket-name> \
+  --index-document index.html \
+  --error-document index.html
+```
+
+Verify:
+
+```bash
+aws s3api get-bucket-website --bucket <your-frontend-bucket-name>
+```
+
+Note: Even with `--error-document index.html`, S3 Website Hosting can still respond with a **404 status**
+for deep links while serving the SPA HTML. The app will work, but DevTools may still show a 404 for the
+document request. If you need **HTTP 200** for SPA routes, put CloudFront in front and configure a custom
+error response (404 -> `/index.html` with 200).
+
 ## 4) Useful AWS Commands
 
 Get API URL from CloudFormation outputs:
